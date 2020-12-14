@@ -1,8 +1,29 @@
-stages:
-  - build
+image: maven:3.6.3-openjdk-11-slim
 
-build:
-  stage: build
+variables:
+  MAVEN_OPTS: "-Dmaven.repo.local=.m2/repository"
+  MAVEN_CLI_OPTS: "--batch-mode --errors --fail-at-end --show-version -DinstallAtEnd=true -DdeployAtEnd=true"
+
+cache:
+  paths:
+    - .m2/repository
+
+stages:
+  - build_jar
+  - build_docker
+
+build_jar:
+  stage: build_jar
+  script:
+    - mvn clean package
+  only:
+    - tags
+  artifacts:
+    paths:
+      - ${CI_PROJECT_DIR}/target/*-runner.jar
+
+build_docker:
+  stage: build_docker
   image:
     name: gcr.io/kaniko-project/executor:debug
     entrypoint: [""]
@@ -10,7 +31,6 @@ build:
   script:
     - mkdir -p /kaniko/.docker
     - echo "{\"auths\":{\"$CI_REGISTRY\":{\"username\":\"$CI_REGISTRY_USER\",\"password\":\"$CI_REGISTRY_PASSWORD\"}}}" > /kaniko/.docker/config.json
-    - /kaniko/executor --context $CI_PROJECT_DIR --dockerfile $CI_PROJECT_DIR/src/main/docker/Dockerfile.multistage --destination $CI_REGISTRY_IMAGE:$CI_COMMIT_TAG
-
+    - /kaniko/executor --context $CI_PROJECT_DIR --dockerfile $CI_PROJECT_DIR/src/main/docker/Dockerfile.jvm --destination $CI_REGISTRY_IMAGE:$CI_COMMIT_TAG
   only:
     - tags
