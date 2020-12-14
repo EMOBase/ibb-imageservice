@@ -21,6 +21,7 @@ build_jar:
   artifacts:
     paths:
       - ${CI_PROJECT_DIR}/target/*-runner.jar
+      - ${CI_PROJECT_DIR}/target/lib/*
 
 build_docker:
   stage: build_docker
