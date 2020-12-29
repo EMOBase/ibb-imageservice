@@ -1,37 +1,48 @@
-image: maven:3.6.3-openjdk-11-slim
+stages:
+  - build
+  - push
 
 variables:
-  MAVEN_OPTS: "-Dmaven.repo.local=.m2/repository"
-  MAVEN_CLI_OPTS: "--batch-mode --errors --fail-at-end --show-version -DinstallAtEnd=true -DdeployAtEnd=true"
+  CONTAINER_TEMP_IMAGE: $CI_REGISTRY_IMAGE:temp-$CI_COMMIT_SHORT_SHA
 
-cache:
-  paths:
-    - .m2/repository
-
-stages:
-  - build_jar
-  - build_docker
-
-build_jar:
-  stage: build_jar
-  script:
-    - mvn clean package
-  only:
-    - tags
-  artifacts:
-    paths:
-      - ${CI_PROJECT_DIR}/target/*-runner.jar
-      - ${CI_PROJECT_DIR}/target/lib/*
-
-build_docker:
-  stage: build_docker
+build native:
+  stage: build
   image:
     name: gcr.io/kaniko-project/executor:debug
     entrypoint: [""]
-
+  only:
+    - master
   script:
     - mkdir -p /kaniko/.docker
     - echo "{\"auths\":{\"$CI_REGISTRY\":{\"username\":\"$CI_REGISTRY_USER\",\"password\":\"$CI_REGISTRY_PASSWORD\"}}}" > /kaniko/.docker/config.json
-    - /kaniko/executor --context $CI_PROJECT_DIR --dockerfile $CI_PROJECT_DIR/src/main/docker/Dockerfile.jvm --destination $CI_REGISTRY_IMAGE:$CI_COMMIT_TAG
+    - >
+      /kaniko/executor
+      --context $CI_PROJECT_DIR
+      --dockerfile $CI_PROJECT_DIR/src/main/docker/Dockerfile.multistage
+      --destination $CONTAINER_TEMP_IMAGE
+
+push latest:
+  stage: push
+  image:
+    name: gcr.io/go-containerregistry/crane:debug
+    entrypoint: [""]
+  only:
+    - master
+  variables:
+    GIT_STRATEGY: none
+  script:
+    - crane auth login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+    - crane cp $CONTAINER_TEMP_IMAGE $CI_REGISTRY_IMAGE:latest
+
+push tag:
+  stage: push
+  image:
+    name: gcr.io/go-containerregistry/crane:debug
+    entrypoint: [""]
   only:
     - tags
+  variables:
+    GIT_STRATEGY: none
+  script:
+    - crane auth login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+    - crane cp $CONTAINER_TEMP_IMAGE $CI_REGISTRY_IMAGE:$CI_COMMIT_TAG
