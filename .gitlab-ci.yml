@@ -1,5 +1,6 @@
 stages:
   - build
+  - containerize
   - push
 
 variables:
@@ -7,6 +8,17 @@ variables:
 
 build native:
   stage: build
+  image: quay.io/quarkus/centos-quarkus-maven:20.3-java11
+  only:
+    - master
+  script:
+    - mvn -f $CI_PROJECT_DIR/pom.xml clean package -P native
+  artifacts:
+    paths:
+      - $CI_PROJECT_DIR/target/*-runner
+
+containerize native:
+  stage: containerize
   image:
     name: gcr.io/kaniko-project/executor:debug
     entrypoint: [""]
@@ -18,7 +30,7 @@ build native:
     - >
       /kaniko/executor
       --context $CI_PROJECT_DIR
-      --dockerfile $CI_PROJECT_DIR/src/main/docker/Dockerfile.multistage
+      --dockerfile $CI_PROJECT_DIR/src/main/docker/Dockerfile.native
       --destination $CONTAINER_TEMP_IMAGE
 
 push latest:
