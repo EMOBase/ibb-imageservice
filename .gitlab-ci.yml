@@ -22,7 +22,6 @@ build jvm:
 
 containerize jvm:
   stage: containerize
-  when: manual
   image:
     name: gcr.io/kaniko-project/executor:debug
     entrypoint: [""]
