@@ -6,8 +6,40 @@ stages:
 variables:
   CONTAINER_TEMP_IMAGE: $CI_REGISTRY_IMAGE:temp-$CI_COMMIT_SHORT_SHA
 
+build jvm:
+  stage: build
+  image: maven:3.6.3-jdk-11-slim
+  only:
+    - master
+  script:
+    - mvn -f $CI_PROJECT_DIR/pom.xml clean package -Dquarkus.container-image.build=false
+  artifacts:
+    paths:
+      - $CI_PROJECT_DIR/target/quarkus-app/lib/
+      - $CI_PROJECT_DIR/target/quarkus-app/*.jar
+      - $CI_PROJECT_DIR/target/quarkus-app/app/
+      - $CI_PROJECT_DIR/target/quarkus-app/quarkus/
+
+containerize jvm:
+  stage: containerize
+  when: manual
+  image:
+    name: gcr.io/kaniko-project/executor:debug
+    entrypoint: [""]
+  only:
+    - master
+  script:
+    - mkdir -p /kaniko/.docker
+    - echo "{\"auths\":{\"$CI_REGISTRY\":{\"username\":\"$CI_REGISTRY_USER\",\"password\":\"$CI_REGISTRY_PASSWORD\"}}}" > /kaniko/.docker/config.json
+    - >
+      /kaniko/executor
+      --context $CI_PROJECT_DIR
+      --dockerfile $CI_PROJECT_DIR/src/main/docker/Dockerfile.jvm
+      --destination $CONTAINER_TEMP_IMAGE
+
 build native:
   stage: build
+  when: manual
   image: quay.io/quarkus/ubi-quarkus-native-image:21.1.0-java11
   only:
     - master
@@ -19,6 +51,7 @@ build native:
 
 containerize native:
   stage: containerize
+  when: manual
   image:
     name: gcr.io/kaniko-project/executor:debug
     entrypoint: [""]
