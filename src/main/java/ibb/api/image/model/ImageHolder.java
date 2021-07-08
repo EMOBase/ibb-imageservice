@@ -1,4 +1,4 @@
-package de.unigoettingen.ibeetlebase.images.model;
+package ibb.api.image.model;
 
 
 import io.quarkus.runtime.annotations.RegisterForReflection;

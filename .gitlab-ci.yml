@@ -8,11 +8,11 @@ variables:
 
 build native:
   stage: build
-  image: quay.io/quarkus/centos-quarkus-maven:20.3-java11
+  image: quay.io/quarkus/ubi-quarkus-native-image:21.1.0-java11
   only:
     - master
   script:
-    - mvn -f $CI_PROJECT_DIR/pom.xml clean package -P native
+    - mvn -f $CI_PROJECT_DIR/pom.xml clean package -Pnative -Dquarkus.container-image.build=false
   artifacts:
     paths:
       - $CI_PROJECT_DIR/target/*-runner

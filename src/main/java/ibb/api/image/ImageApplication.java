@@ -1,4 +1,4 @@
-package de.unigoettingen.ibeetlebase.images;
+package ibb.api.image;
 
 import javax.ws.rs.core.Application;
 

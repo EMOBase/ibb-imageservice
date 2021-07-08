@@ -1,4 +1,4 @@
-package de.unigoettingen.ibeetlebase.images.util;
+package ibb.api.image.util;
 
 import java.io.BufferedReader;
 import java.io.IOException;

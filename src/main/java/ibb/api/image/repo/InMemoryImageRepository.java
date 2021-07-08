@@ -1,4 +1,4 @@
-package de.unigoettingen.ibeetlebase.images.repository;
+package ibb.api.image.repo;
 
 import java.io.IOException;
 import java.util.HashMap;
@@ -14,10 +14,12 @@ import org.apache.commons.csv.CSVRecord;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 
-import de.unigoettingen.ibeetlebase.images.model.ImageHolder;
-import de.unigoettingen.ibeetlebase.images.util.CSVUtil;
+import ibb.api.image.model.ImageHolder;
+import ibb.api.image.util.CSVUtil;
+import io.quarkus.runtime.Startup;
 
 @ApplicationScoped
+@Startup
 public class InMemoryImageRepository implements ImageRepository {
     
     private static final Logger LOG = Logger.getLogger(InMemoryImageRepository.class);

@@ -1,3 +1,5 @@
+-- Extract image metadata from ibpublic
+
 WITH Image AS (
 	SELECT ImageHolder.ID		AS id
 		, ImageHolder.fsName	AS filename
