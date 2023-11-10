@@ -1,6 +1,10 @@
+# Big files
 data/
 
-#Maven
+# Quarkus
+.quarkus
+
+# Maven
 target/
 pom.xml.tag
 pom.xml.releaseBackup
