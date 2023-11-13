@@ -12,15 +12,14 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.eclipse.microprofile.openapi.annotations.enums.ParameterIn;
 import org.eclipse.microprofile.openapi.annotations.parameters.Parameter;
-import org.eclipse.microprofile.openapi.annotations.responses.APIResponse;
+import org.jboss.resteasy.reactive.RestPath;
+import org.jboss.resteasy.reactive.RestQuery;
 
 import ibb.api.imageservice.utils.ImageUtil;
 import io.quarkus.logging.Log;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
-import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
-import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.Response.Status;
 import jakarta.ws.rs.core.StreamingOutput;
@@ -38,20 +37,17 @@ public class ImageEndpoint {
     @GET
     @Path("/{id}")
     @Operation(summary = "Get an image in bytes")
-    @APIResponse(responseCode = "200", description = "Image successfully returned.")
-    @APIResponse(responseCode = "400", description = "Height value not allowed.")
-    @APIResponse(responseCode = "404", description = "No image found with the provided id.")
     public Response get(
             @Parameter(
-                    description = "id of the image",
-                    example = "12679")
-            @PathParam("id") String id,
+                description = "id of the image",
+                example = "12679")
+            @RestPath String id,
             
             @Parameter(
-                    in = ParameterIn.QUERY,
-                    description = "height of the scaled image. Only allow: 25, 50, 75, 100, 150, 200, 250, 300", 
-                    example = "250")
-            @QueryParam("h") Integer height) {
+                in = ParameterIn.QUERY,
+                description = "height of the scaled image. Only allow: 25, 50, 75, 100, 150, 200, 250, 300", 
+                example = "250")
+            @RestQuery("h") Integer height) {
 
         ImageMetadata metadata = ImageMetadata.findById(id);
         
