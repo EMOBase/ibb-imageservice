@@ -1,14 +1,21 @@
-package ibb.api.imageservice.resource;
+package ibb.api.imageservice;
 
-
-import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.util.Collection;
 import java.util.Set;
 
 import javax.imageio.ImageIO;
-import jakarta.inject.Inject;
+import java.awt.image.BufferedImage;
+
+import org.eclipse.microprofile.config.inject.ConfigProperty;
+import org.eclipse.microprofile.openapi.annotations.Operation;
+import org.eclipse.microprofile.openapi.annotations.enums.ParameterIn;
+import org.eclipse.microprofile.openapi.annotations.parameters.Parameter;
+import org.eclipse.microprofile.openapi.annotations.responses.APIResponse;
+
+import ibb.api.imageservice.utils.ImageUtil;
+import io.quarkus.logging.Log;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
@@ -18,32 +25,16 @@ import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.Response.Status;
 import jakarta.ws.rs.core.StreamingOutput;
 
-import org.eclipse.microprofile.config.inject.ConfigProperty;
-import org.eclipse.microprofile.openapi.annotations.Operation;
-import org.eclipse.microprofile.openapi.annotations.enums.ParameterIn;
-import org.eclipse.microprofile.openapi.annotations.parameters.Parameter;
-import org.eclipse.microprofile.openapi.annotations.responses.APIResponse;
-import org.jboss.logging.Logger;
-
-import ibb.api.imageservice.model.ImageHolder;
-import ibb.api.imageservice.repo.ImageRepository;
-import ibb.api.imageservice.util.ImageUtil;
-
 @Path("/images")
 @Produces("image/jpeg")
-public class ImageResource {
+public class ImageEndpoint {
 
     @ConfigProperty(name = "data.image.dir")
     String imageDir;
-    
-    @Inject
-    ImageRepository repo;
-    
-    private static final Logger LOG = Logger.getLogger(ImageResource.class);
-    
+
     // only some sizes for the images are allowed to avoid DoS attacks
     private static final Collection<Integer> ALLOWED_SIZES = Set.of(25, 50, 75, 100, 150, 200, 250, 300);
-    
+
     @GET
     @Path("/{id}")
     @Operation(summary = "Get an image in bytes")
@@ -62,9 +53,9 @@ public class ImageResource {
                     example = "250")
             @QueryParam("h") Integer height) {
 
-        ImageHolder imageHolder = repo.get(id);
+        ImageMetadata metadata = ImageMetadata.findById(id);
         
-        if (imageHolder == null) {
+        if (metadata == null) {
             return Response.status(Status.NOT_FOUND).build();
         }
         
@@ -74,7 +65,7 @@ public class ImageResource {
             
         StreamingOutput stream = os -> {
 
-            java.nio.file.Path path = java.nio.file.Path.of(imageDir, imageHolder.getFilename());
+            java.nio.file.Path path = java.nio.file.Path.of(imageDir, metadata.filepath);
             try {
                 BufferedImage image = ImageIO.read(Files.newInputStream(path));
                 
@@ -82,14 +73,14 @@ public class ImageResource {
                     image = ImageUtil.scaleImage(image, height);
                 }
                 
-                if (image.getHeight() > 200) {
-                    image = ImageUtil.addWatermark(image, imageHolder.getWatermark());
+                if (image.getHeight() > 200 && metadata.watermark != null) {
+                    image = ImageUtil.addWatermark(image, metadata.watermark);
                 }
 
                 ImageIO.write(image, "jpeg", os);
                 
             } catch (IOException e) {
-                LOG.errorv("Image with path {0} cannot be opened.", path);
+                Log.errorv("Image with path {0} cannot be opened.", path);
             }
         };
 

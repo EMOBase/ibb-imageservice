@@ -1,4 +1,4 @@
-package ibb.api.imageservice.util;
+package ibb.api.imageservice.utils;
 
 import java.io.BufferedReader;
 import java.io.IOException;
