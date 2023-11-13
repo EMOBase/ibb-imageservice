@@ -1,4 +1,4 @@
-package ibb.api.image;
+package ibb.api.imageservice;
 
 import jakarta.ws.rs.core.Application;
 

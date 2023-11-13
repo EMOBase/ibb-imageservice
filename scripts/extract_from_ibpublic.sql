@@ -1,9 +1,10 @@
 -- Extract image metadata from ibpublic
+-- ibpublic is the legacy database created by Jürgen Dönitz
 
 WITH Image AS (
 	SELECT ImageHolder.ID		AS id
 		, ImageHolder.fsName	AS filename
-		, CoreData.dsRNAID	AS watermark
+		, CoreData.dsRNAID		AS watermark
 	FROM ImageHolder
 
 	INNER JOIN Feature

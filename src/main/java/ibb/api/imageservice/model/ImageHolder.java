@@ -1,4 +1,4 @@
-package ibb.api.image.model;
+package ibb.api.imageservice.model;
 
 
 import io.quarkus.runtime.annotations.RegisterForReflection;

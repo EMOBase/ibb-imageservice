@@ -1,4 +1,4 @@
-package ibb.api.image.resource;
+package ibb.api.imageservice.resource;
 
 
 import java.awt.image.BufferedImage;
@@ -25,9 +25,9 @@ import org.eclipse.microprofile.openapi.annotations.parameters.Parameter;
 import org.eclipse.microprofile.openapi.annotations.responses.APIResponse;
 import org.jboss.logging.Logger;
 
-import ibb.api.image.model.ImageHolder;
-import ibb.api.image.repo.ImageRepository;
-import ibb.api.image.util.ImageUtil;
+import ibb.api.imageservice.model.ImageHolder;
+import ibb.api.imageservice.repo.ImageRepository;
+import ibb.api.imageservice.util.ImageUtil;
 
 @Path("/images")
 @Produces("image/jpeg")

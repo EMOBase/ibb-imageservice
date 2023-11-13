@@ -1,4 +1,4 @@
-package ibb.api.image.util;
+package ibb.api.imageservice.util;
 
 import java.awt.BasicStroke;
 import java.awt.Color;

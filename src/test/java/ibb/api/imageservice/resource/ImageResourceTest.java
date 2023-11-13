@@ -1,4 +1,4 @@
-package ibb.api.image.resource;
+package ibb.api.imageservice.resource;
 
 import org.junit.jupiter.api.Test;
 

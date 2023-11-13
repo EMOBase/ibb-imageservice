@@ -1,4 +1,4 @@
-package ibb.api.image.repo;
+package ibb.api.imageservice.repo;
 
 import java.io.IOException;
 import java.util.HashMap;
@@ -14,8 +14,8 @@ import org.apache.commons.csv.CSVRecord;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 
-import ibb.api.image.model.ImageHolder;
-import ibb.api.image.util.CSVUtil;
+import ibb.api.imageservice.model.ImageHolder;
+import ibb.api.imageservice.util.CSVUtil;
 import io.quarkus.runtime.Startup;
 
 @ApplicationScoped
