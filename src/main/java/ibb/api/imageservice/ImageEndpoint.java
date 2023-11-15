@@ -26,6 +26,7 @@ import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.InternalServerErrorException;
 import jakarta.ws.rs.POST;
+import jakarta.ws.rs.PUT;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
@@ -33,7 +34,7 @@ import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.Response.Status;
 import jakarta.ws.rs.core.StreamingOutput;
 
-@Path("/images")
+@Path("/")
 public class ImageEndpoint {
 
     @Inject
@@ -43,7 +44,7 @@ public class ImageEndpoint {
     private static final Collection<Integer> ALLOWED_SIZES = Set.of(25, 50, 75, 100, 150, 200, 250, 300);
 
     @GET
-    @Path("/{id}")
+    @Path("/images/{id}")
     @Produces("image/jpeg")
     @Operation(summary = "Get an image in bytes")
     public Response get(
@@ -63,6 +64,9 @@ public class ImageEndpoint {
         if (metadata == null) {
             return Response.status(Status.NOT_FOUND).build();
         }
+        if (metadata.status == ImageMetadata.Status.REJECTED) {
+            return Response.status(Status.FORBIDDEN).build();
+        }
         if (height != null && !ALLOWED_SIZES.contains(height)) {
             return Response.status(Status.BAD_REQUEST).build();
         }
@@ -80,10 +84,11 @@ public class ImageEndpoint {
 
 
     @POST
+    @Path("/images")
     @Transactional
     @Consumes(MediaType.MULTIPART_FORM_DATA)
     @Produces(MediaType.APPLICATION_JSON)
-    public List<Long> upload(MultipartBody body) {
+    public List<ImageMetadata> upload(MultipartBody body) {
         final List<FileUpload> uploadedImages = body.images;
         if (uploadedImages.size() == 0) {
             throw new BadRequestException();
@@ -99,9 +104,35 @@ public class ImageEndpoint {
             e.printStackTrace();
             throw new InternalServerErrorException();
         }
+        return metadatas;
+    }
 
-        final List<Long> imageIds = metadatas.stream().map(metadata -> metadata.id).toList();
-        return imageIds;
+    @GET
+    @Path("/image-metadata")
+    public List<ImageMetadata> list(@RestQuery("ids") List<Long> ids) {
+        return ImageMetadata.list("id in ?1", ids);
+    }
+
+    @GET
+    @Path("/image-metadata/pending")
+    public List<ImageMetadata> listPending() {
+        return ImageMetadata.list("status", ImageMetadata.Status.PENDING);
+    }
+
+    @PUT
+    @Path("/image-metadata")
+    @Transactional
+    public void update(List<ImageMetadata> metadatas) throws IOException {
+        for (ImageMetadata metadata : metadatas) {
+            final ImageMetadata existing = ImageMetadata.findById(metadata.id);
+            if (existing == null || existing.status != ImageMetadata.Status.PENDING) {
+                return;
+            }
+            existing.status = metadata.status;
+            if (metadata.status == ImageMetadata.Status.REJECTED) {
+                storage.delete(existing);
+            }
+        };
     }
 
     @Schema(type = SchemaType.STRING, format = "binary")

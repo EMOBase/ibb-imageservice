@@ -27,6 +27,10 @@ public class ImageStorage {
         Files.createDirectories(Path.of(imageDir, newImageSubdir));
     }
 
+    public void delete(ImageMetadata metadata) throws IOException {
+        Files.delete(Path.of(imageDir, metadata.filepath));
+    }
+
     public void save(ImageMetadata metadata, final Path sourceImage) throws IOException {
         metadata.filepath = Path.of(newImageSubdir, metadata.id.toString()).toString();
         final Path targetImage = Path.of(imageDir, metadata.filepath);

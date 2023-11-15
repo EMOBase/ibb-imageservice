@@ -9,6 +9,7 @@ import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.junit.QuarkusTestProfile;
 import io.quarkus.test.junit.TestProfile;
 import io.restassured.RestAssured;
+import io.restassured.http.ContentType;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.hamcrest.Matchers.*;
@@ -18,6 +19,7 @@ import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
 
@@ -40,16 +42,40 @@ public class ImageEndpointTest {
     }
 
     @Test
-    public void testCRUD() throws IOException {
-        Long[] imageIds = testPostImages();
+    public void testCRUDWorkflow() throws IOException {
+        ImageMetadata[] metadatas = testPostImages();
 
-        for (Long imageId : imageIds) {
-            testGetImage(imageId);
-            testGetImageWithSpecifiedHeight(imageId, 250);
+        for (ImageMetadata metadata : metadatas) {
+            testGetImage(metadata.id);
+            testGetImageWithSpecifiedHeight(metadata.id, 250);
         };
+
+        testGetImageMetadata(List.of(metadatas[0].id, metadatas[1].id), List.of("PENDING", "PENDING"));
+        testGetImageMetadata(List.of(metadatas[2].id), List.of("PENDING"));
+        testGetImageMetadata(List.of(metadatas[0].id, metadatas[1].id, metadatas[2].id), List.of("PENDING", "PENDING", "PENDING"));
+
+        testGetPendingImages(3);
+        testApproveImages(List.of(metadatas[0], metadatas[1]));
+        testGetPendingImages(1);
+        testRejectImages(List.of(metadatas[2]));
+        testGetPendingImages(0);
+
+        testGetImageMetadata(List.of(
+            metadatas[0].id,
+            metadatas[1].id,
+            metadatas[2].id
+        ), List.of(
+            "APPROVED",
+            "APPROVED",
+            "REJECTED"
+        ));
+
+        testGetImage(metadatas[0].id);
+        testGetImage(metadatas[1].id);
+        testGetImageForbidden(metadatas[2].id);
     }
 
-    private Long[] testPostImages() {
+    private ImageMetadata[] testPostImages() {
         final File[] files = Stream.of("20608.jpeg", "20609.jpeg", "20610.jpeg")
             .map(filename -> getClass().getClassLoader().getResource(filename).getFile())
             .map(File::new)
@@ -60,14 +86,16 @@ public class ImageEndpointTest {
                 .multiPart("images", files[0], "image/jpeg")
                 .multiPart("images", files[1], "image/jpeg")
                 .multiPart("images", files[2], "image/jpeg")
-            .when().post()
+            .when().post("/images")
             .then()
                 .statusCode(200)
                 .contentType("application/json")
                 .body("size()", equalTo(3))
+                .body("id", everyItem(notNullValue()))
+                .body("status", everyItem(equalTo("PENDING")))
             .extract()
                 .response()
-                .body().as(Long[].class);
+                .body().as(ImageMetadata[].class);
     }
 
     private void testGetImage(final Long imageId) throws IOException {
@@ -75,7 +103,7 @@ public class ImageEndpointTest {
     }
     
     private void testGetImageWithSpecifiedHeight(final Long imageId, final Integer height) throws IOException {
-        String url = "/" + imageId;
+        String url = "/images/" + imageId;
         if (height != null) {
             url += "?h=" + height;
         }
@@ -96,5 +124,52 @@ public class ImageEndpointTest {
         } else {
             assert(image.getHeight() > 0);
         }
+    }
+
+    private void testGetImageForbidden(long imageId) {
+        RestAssured
+            .when().get("/images/" + imageId)
+            .then()
+                .statusCode(403);
+    }
+
+    private void testGetImageMetadata(final List<Long> imageIds, final List<String> expectedStatuses) {
+        RestAssured
+            .given().param("ids", imageIds)
+            .when().get("/image-metadata")
+            .then()
+                .statusCode(200)
+                .contentType(ContentType.JSON)
+                .body("size()", equalTo(imageIds.size()))
+                .body("id", everyItem(notNullValue()))
+                .body("filepath", everyItem(nullValue()))
+                .body("watermark", everyItem(nullValue()))
+                .body("status", is(expectedStatuses));
+    }
+
+    private void testGetPendingImages(int expectedSize) {
+        RestAssured
+            .when().get("/image-metadata/pending")
+            .then()
+                .contentType(ContentType.JSON)
+                .body("size()", equalTo(expectedSize));
+    }
+
+    private void testApproveImages(List<ImageMetadata> metadatas) {
+        metadatas.forEach(metadata -> metadata.status = ImageMetadata.Status.APPROVED);
+        RestAssured
+            .given().contentType(ContentType.JSON).body(metadatas)
+            .when().put("/image-metadata")
+            .then()
+                .statusCode(204);
+    }
+
+    private void testRejectImages(List<ImageMetadata> metadatas) {
+        metadatas.forEach(metadata -> metadata.status = ImageMetadata.Status.REJECTED);
+        RestAssured
+            .given().contentType(ContentType.JSON).body(metadatas)
+            .when().put("/image-metadata")
+            .then()
+                .statusCode(204);
     }
 }
