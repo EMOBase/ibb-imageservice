@@ -14,6 +14,10 @@ import io.quarkus.runtime.StartupEvent;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Observes;
 
+/**
+ * Handle the actual storage of images.
+ * Current implementation: store the images in a local directory.
+ */
 @ApplicationScoped
 public class ImageStorage {
 
@@ -31,10 +35,11 @@ public class ImageStorage {
         Files.delete(Path.of(imageDir, metadata.filepath));
     }
 
-    public void save(ImageMetadata metadata, final Path sourceImage) throws IOException {
-        metadata.filepath = Path.of(newImageSubdir, metadata.id.toString()).toString();
-        final Path targetImage = Path.of(imageDir, metadata.filepath);
+    public String save(final String imageId, final Path sourceImage) throws IOException {
+        final String relativeTargetImage = Path.of(newImageSubdir, imageId).toString();
+        final Path targetImage = Path.of(imageDir, relativeTargetImage);
         Files.move(sourceImage, targetImage);
+        return relativeTargetImage;
     }
 
     public BufferedImage get(final ImageMetadata metadata, final Integer height) throws IOException {

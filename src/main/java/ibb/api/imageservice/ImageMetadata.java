@@ -1,24 +1,28 @@
 package ibb.api.imageservice;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonView;
 
-import io.quarkus.hibernate.orm.panache.PanacheEntity;
-import jakarta.persistence.Entity;
-
-@Entity
-public class ImageMetadata extends PanacheEntity {
-
+public class ImageMetadata {
     public static enum Status {
         APPROVED,
         PENDING,
         REJECTED
     };
 
-    @JsonIgnore
+    public static class Views {
+        public static class Public {}
+        public static class Private extends Public {}
+    }
+
+    @JsonView(Views.Public.class)
+    public String id;
+
+    @JsonView(Views.Public.class)
+    public Status status = Status.PENDING;
+
+    @JsonView(Views.Private.class)
     public String filepath;
 
-    @JsonIgnore
+    @JsonView(Views.Private.class)
     public String watermark;
-
-    public Status status = Status.PENDING;
 }
