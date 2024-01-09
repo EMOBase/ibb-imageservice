@@ -28,7 +28,11 @@ public class ImageStorage {
     String newImageSubdir;
 
     void createNewImageSubdir(@Observes StartupEvent ev) throws IOException {
-        Files.createDirectories(Path.of(imageDir, newImageSubdir));
+        Path path = Path.of(imageDir, newImageSubdir);
+        Files.createDirectories(path);
+        if (!Files.isWritable(path)) {
+            throw new IOException("Directory " + path + " is not writeable");
+        }
     }
 
     public void delete(ImageMetadata metadata) throws IOException {
