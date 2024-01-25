@@ -97,6 +97,7 @@ public class ImageService {
     @JsonView(ImageMetadata.Views.Public.class)
     public List<ImageMetadata> upload(MultipartBody body) throws IOException {
         final List<FileUpload> uploadedImages = body.images;
+        Log.debugf("Uploaded %d images", uploadedImages.size());
         if (uploadedImages.size() == 0) {
             throw new BadRequestException();
         }

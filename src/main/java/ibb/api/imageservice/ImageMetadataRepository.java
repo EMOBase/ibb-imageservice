@@ -33,6 +33,8 @@ public class ImageMetadataRepository {
         if (deleteIndexOnStart) {
             deleteIndex();
         }
+        createIndexIfNotExists();
+        Log.infof("Elasticsearch index name: %s", indexName);
     }
 
     @Inject
@@ -114,6 +116,16 @@ public class ImageMetadataRepository {
             }
             if (refreshAfterWrite) {
                 refreshIndex();
+            }
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public void createIndexIfNotExists() {
+        try {
+            if (!esClient.indices().exists(b -> b.index(indexName)).value()) {
+                esClient.indices().create(b -> b.index(indexName));
             }
         } catch (IOException e) {
             throw new RuntimeException(e);
