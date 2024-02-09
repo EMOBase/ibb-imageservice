@@ -20,6 +20,9 @@ public class ImageMetadata {
     @JsonView(Views.Public.class)
     public Status status = Status.PENDING;
 
+    @JsonView(Views.Public.class)
+    public String comment;
+
     @JsonView(Views.Private.class)
     public String filepath;
 

@@ -43,16 +43,27 @@ import io.restassured.http.ContentType;
 public class ImageServiceCRUDWorkflowTest {
 
     private static class Timeline {
-        public static final int BEFORE_THREE_IMAGES_UPLOADED = 1;
-        public static final int AFTER_THREE_IMAGES_UPLOADED = 2;
-        public static final int BEFORE_ONE_IMAGE_APPROVED = 3;
-        public static final int AFTER_ONE_IMAGE_APPROVED = 4;
-        public static final int BEFORE_ONE_IMAGE_REJECTED = 5;
-        public static final int AFTER_ONE_IMAGE_REJECTED = 6;
+        public static final int INITIAL = 1;
+        public static final int BEFORE_THREE_IMAGES_UPLOADED = 2;
+        public static final int AFTER_THREE_IMAGES_UPLOADED = 3;
+        public static final int BEFORE_ONE_IMAGE_APPROVED = 4;
+        public static final int AFTER_ONE_IMAGE_APPROVED = 5;
+        public static final int BEFORE_ONE_IMAGE_REJECTED = 6;
+        public static final int AFTER_ONE_IMAGE_REJECTED = 7;
+        public static final int BEFORE_DELETING_PENDING_IMAGE = 8;
+        public static final int AFTER_DELETING_PENDING_IMAGE = 9;
+        public static final int BEFORE_DELETING_OTHER_IMAGES = 10;
+        public static final int AFTER_DELETING_OTHER_IMAGES = 11;
     }
 
     @TempDir
     static Path tempDir;
+
+    @Test
+    @Order(Timeline.INITIAL)
+    public void fetchPendingImageMetadatas_ShouldReturnZero_OnStartUp() {
+        fetchPendingImageMetadatasShouldReturn(0);
+    }
 
     public static class TemporaryImageStorageTestProfile implements QuarkusTestProfile {
         @Override
@@ -436,6 +447,52 @@ public class ImageServiceCRUDWorkflowTest {
             .when().get(url)
             .then()
                 .statusCode(StatusCode.FORBIDDEN);
+    }
+
+    @Test
+    @Order(Timeline.BEFORE_DELETING_PENDING_IMAGE)
+    public void deletePendingImage_ShouldSucceed() {
+        final String deletingImageId = imageMetadataProvider.getPendingImageId();
+        final String url = "/image-metadata?ids=" + deletingImageId;
+        RestAssured
+            .when().delete(url)
+            .then()
+                .statusCode(StatusCode.NO_CONTENT);
+    }
+
+    @Test
+    @Order(Timeline.AFTER_DELETING_PENDING_IMAGE)
+    public void fetchPendingImageMetadatas_ShouldReturnCorrectSize_AfterOneImageIsDeleted() {
+        fetchPendingImageMetadatasShouldReturn(0);
+    }
+
+    @Test
+    @Order(Timeline.BEFORE_DELETING_OTHER_IMAGES)
+    public void deleteMultipleImages_ShouldSucceed() {
+        final List<String> deletingImageIds = List.of(
+            imageMetadataProvider.getImageIdForApproval(),
+            imageMetadataProvider.getImageIdForRejection()
+        );
+        final String url = "/image-metadata?ids=" + String.join(",", deletingImageIds);
+        RestAssured
+            .when().delete(url)
+            .then()
+                .statusCode(StatusCode.NO_CONTENT);
+    }
+
+    @Test
+    @Order(Timeline.AFTER_DELETING_OTHER_IMAGES)
+    public void fetchDeletedMetadata_ShouldFail() {
+        final List<String> deletingImageIds = List.of(
+            imageMetadataProvider.getImageIdForApproval(),
+            imageMetadataProvider.getImageIdForRejection()
+        );
+        final String url = "/image-metadata?ids=" + String.join(",", deletingImageIds);
+        RestAssured
+            .when().get(url)
+            .then()
+                .statusCode(StatusCode.OK)
+                .body("size()", equalTo(0));
     }
 
     private void fetchPendingImageMetadatasShouldReturn(int expectedSize) {

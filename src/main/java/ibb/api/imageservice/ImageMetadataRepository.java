@@ -6,11 +6,8 @@ import java.util.List;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
-import co.elastic.clients.elasticsearch._types.ErrorCause;
+import co.elastic.clients.elasticsearch._helpers.bulk.BulkIngester;
 import co.elastic.clients.elasticsearch._types.query_dsl.IdsQuery;
-import co.elastic.clients.elasticsearch.core.BulkRequest;
-import co.elastic.clients.elasticsearch.core.BulkResponse;
-import co.elastic.clients.elasticsearch.core.bulk.BulkResponseItem;
 import io.quarkus.logging.Log;
 import io.quarkus.runtime.StartupEvent;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -42,6 +39,7 @@ public class ImageMetadataRepository {
 
     public void deleteIndex() {
         try {
+            Log.debug("Deleting index: " + indexName);
             esClient.indices().delete(b -> b.index(indexName).ignoreUnavailable(true));
         } catch (IOException e) {
             throw new RuntimeException(e);
@@ -70,6 +68,7 @@ public class ImageMetadataRepository {
             queryBuilder.values(ids);
 
             return esClient.search(s -> s
+                    .index(indexName)
                     .query(q -> q
                         .ids(queryBuilder.build())),
                          ImageMetadata.class
@@ -82,6 +81,7 @@ public class ImageMetadataRepository {
     public List<ImageMetadata> listByStatus(ImageMetadata.Status status) {
         try {
             return esClient.search(s -> s
+                    .index(indexName)
                     .query(q -> q
                         .term(t -> t.field("status.keyword").value(status.name()))),
                          ImageMetadata.class
@@ -94,31 +94,35 @@ public class ImageMetadataRepository {
     public void index(List<ImageMetadata> metadatas) {
         ensureValidMetadatas(metadatas);
 
-        BulkRequest.Builder br = new BulkRequest.Builder();
-        for (var metadata : metadatas) {
-            br.operations(op -> op
-                .index(idx -> idx
-                    .index(indexName)
-                    .id(metadata.id)
-                    .document(metadata)
-                ));
+        try (BulkIngester<Void> ingester = BulkIngester.of(b -> b.client(esClient))) {
+            for (var metadata : metadatas) {
+                ingester.add(b -> b
+                    .index(idx -> idx
+                        .index(indexName)
+                        .id(metadata.id)
+                        .document(metadata)
+                    )
+                );
+            }
         }
-        try {
-            BulkResponse response = esClient.bulk(br.build());
-            if (response.errors()) {
-                for (BulkResponseItem item: response.items()) {
-                    ErrorCause error = item.error();
-                    if (error != null) {
-                        Log.error(error.reason());
-                    }
-                }
-                throw new RuntimeException("Bulk had errors");
+        if (refreshAfterWrite) {
+            refreshIndex();
+        }
+    }
+
+    public void delete(List<String> ids) {
+        try (BulkIngester<Void> ingester = BulkIngester.of(b -> b.client(esClient))) {
+            for (var id : ids) {
+                ingester.add(b -> b
+                    .delete(d -> d
+                        .index(indexName)
+                        .id(id)
+                    )
+                );
             }
-            if (refreshAfterWrite) {
-                refreshIndex();
-            }
-        } catch (IOException e) {
-            throw new RuntimeException(e);
+        }
+        if (refreshAfterWrite) {
+            refreshIndex();
         }
     }
 

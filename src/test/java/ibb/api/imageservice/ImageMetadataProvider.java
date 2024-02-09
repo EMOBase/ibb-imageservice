@@ -33,6 +33,13 @@ public class ImageMetadataProvider {
         return metadatas.get(1).id;
     }
 
+    public String getPendingImageId() {
+        if (metadatas.size() < 3) {
+            throw new IllegalStateException("Not enough image metadata is stored yet!");
+        }
+        return metadatas.get(2).id;
+    }
+
     public void addMetadatas(List<ImageMetadata> metadatas) {
         this.metadatas.addAll(metadatas);
     }

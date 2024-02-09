@@ -29,6 +29,7 @@ import io.quarkus.logging.Log;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.PUT;
@@ -117,15 +118,15 @@ public class ImageService {
     @GET
     @Path("/image-metadata")
     @JsonView(ImageMetadata.Views.Public.class)
-    public List<ImageMetadata> list(@RestQuery("ids") List<String> ids) {
-        List<String> filteredIds = Arrays.stream(String.join(",", ids).split(","))
+    public List<ImageMetadata> list(@RestQuery("ids") String commaSeparatedIds) {
+        List<String> ids = Arrays.stream(commaSeparatedIds.split(","))
             .filter(id -> id != null && !id.isEmpty())
             .toList();
-        if (filteredIds.size() == 0) {
+        if (ids.size() == 0) {
             throw new BadRequestException("Ids cannot be empty");
         }
 
-        return metadataRepository.listByIds(filteredIds);
+        return metadataRepository.listByIds(ids);
     }
 
     @GET
@@ -167,6 +168,28 @@ public class ImageService {
                 }
             });
         return existingMetadatas;
+    }
+
+    @DELETE
+    @Path("/image-metadata")
+    @Operation(summary = "Delete images")
+    public void delete(@RestQuery("ids") String commaSeparatedIds) throws IOException {
+        List<String> ids = Arrays.stream(commaSeparatedIds.split(","))
+            .filter(id -> id != null && !id.isEmpty())
+            .toList();
+
+        if (ids == null || ids.size() == 0) {
+            throw new BadRequestException("Ids cannot be empty");
+        }
+        List<ImageMetadata> existingMetadatas = metadataRepository.listByIds(ids);
+        metadataRepository.delete(ids);
+        existingMetadatas.forEach(m -> {
+            try {
+                storage.delete(m);
+            } catch (IOException e) {
+                Log.errorf("Failed to delete image %s", m.id, e);
+            }
+        });
     }
 
     @Schema(type = SchemaType.STRING, format = "binary")
