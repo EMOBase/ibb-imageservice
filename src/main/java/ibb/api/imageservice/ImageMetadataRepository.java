@@ -38,18 +38,6 @@ public class ImageMetadataRepository {
 
     public ImageMetadata findById(String id) throws IOException {
         return findByIds(List.of(id)).stream().findFirst().orElse(null);
-        // try {
-        //     return esClient.get(b -> b
-        //         .index(getReadIndexName())
-        //         .id(id)
-        //     , ImageMetadata.class).source();
-        // } catch (ElasticsearchException e) {
-        //     if ("index_not_found_exception".equals(e.error().type())) {
-        //         return null;
-        //     } else {
-        //         throw e;
-        //     }
-        // }
     }
 
     public List<ImageMetadata> findByIds(List<String> ids) throws IOException {
