@@ -51,6 +51,8 @@ public class ImageMetadataRepository {
             if (path.toFile().canRead()) {
                 Log.infov("Loading iBeetle images from {0}", path);
                 loadIBeetleImages(path);
+            } else {
+                Log.infov("iBeetle images file {0} not found, skipping loading data", path);
             }
         }
     }
