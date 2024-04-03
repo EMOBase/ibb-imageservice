@@ -38,32 +38,21 @@ import io.restassured.http.ContentType;
 
 @QuarkusTest
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
-@TestHTTPEndpoint(ImageService.class)
+@TestHTTPEndpoint(ImageEndpoints.class)
 @TestProfile(ImageServiceCRUDWorkflowTest.TemporaryImageStorageTestProfile.class)
 public class ImageServiceCRUDWorkflowTest {
 
     private static class Timeline {
-        public static final int INITIAL = 1;
         public static final int BEFORE_THREE_IMAGES_UPLOADED = 2;
         public static final int AFTER_THREE_IMAGES_UPLOADED = 3;
         public static final int BEFORE_ONE_IMAGE_APPROVED = 4;
         public static final int AFTER_ONE_IMAGE_APPROVED = 5;
         public static final int BEFORE_ONE_IMAGE_REJECTED = 6;
         public static final int AFTER_ONE_IMAGE_REJECTED = 7;
-        public static final int BEFORE_DELETING_PENDING_IMAGE = 8;
-        public static final int AFTER_DELETING_PENDING_IMAGE = 9;
-        public static final int BEFORE_DELETING_OTHER_IMAGES = 10;
-        public static final int AFTER_DELETING_OTHER_IMAGES = 11;
     }
 
     @TempDir
     static Path tempDir;
-
-    @Test
-    @Order(Timeline.INITIAL)
-    public void fetchPendingImageMetadatas_ShouldReturnZero_OnStartUp() {
-        fetchPendingImageMetadatasShouldReturn(0);
-    }
 
     public static class TemporaryImageStorageTestProfile implements QuarkusTestProfile {
         @Override
@@ -156,6 +145,7 @@ public class ImageServiceCRUDWorkflowTest {
     @Test
     @Order(Timeline.AFTER_THREE_IMAGES_UPLOADED)
     public void actualImages_ShouldBeFetchable_AfterUploaded() throws IOException {
+        assertEquals(3, imageMetadataProvider.getAllImageIds().size());
         for (String imageId : imageMetadataProvider.getAllImageIds()) {
             final String url = "/images/" + imageId;
             final byte[] imageBytes = RestAssured.given()
@@ -224,9 +214,12 @@ public class ImageServiceCRUDWorkflowTest {
     @Order(Timeline.AFTER_THREE_IMAGES_UPLOADED)
     public void fetchOneImageMetadata_ShouldReturnAppropriateFields_AfterActualImagesAreUploaded() {
         final String imageId = imageMetadataProvider.getOneImageId();
-        final String url = "/image-metadata?ids=" + imageId;
+        final String url = "/image-metadata/get";
         RestAssured
-            .when().get(url)
+            .given()
+                .contentType(ContentType.JSON)
+                .body(List.of(imageId))
+            .when().post(url)
             .then()
                 .statusCode(StatusCode.OK)
                 .contentType(ContentType.JSON)
@@ -241,9 +234,12 @@ public class ImageServiceCRUDWorkflowTest {
     @Order(Timeline.AFTER_THREE_IMAGES_UPLOADED)
     public void fetchMultipleImageMetadatas_ShouldReturnAppropriateFields_AfterActualImagesAreUploaded() {
         final List<String> imageIds = imageMetadataProvider.getAllImageIds();
-        final String url = "/image-metadata?ids=" + String.join(",", imageIds);
+        final String url = "/image-metadata/get";
         RestAssured
-            .when().get(url)
+            .given()
+                .contentType(ContentType.JSON)
+                .body(imageIds)
+            .when().post(url)
             .then()
                 .statusCode(StatusCode.OK)
                 .contentType(ContentType.JSON)
@@ -254,92 +250,19 @@ public class ImageServiceCRUDWorkflowTest {
                 .body("status", everyItem(equalTo("PENDING")));
     }
 
-    @Test
-    @Order(Timeline.AFTER_THREE_IMAGES_UPLOADED)
-    public void fetchPendingImageMetadatas_ShouldReturnCorrectSize_AfterActualImagesAreUploaded() {
-        fetchPendingImageMetadatasShouldReturn(3);
-    }
-
-    @Test
-    @Order(Timeline.AFTER_THREE_IMAGES_UPLOADED)
-    public void updateImageMetadata_WithEmptyPayload_ShouldFail() {
-        final String url = "/image-metadata";
-        final String payload = "[]";
-        RestAssured
-            .given()
-                .contentType(ContentType.JSON)
-                .body(payload)
-            .when().put(url)
-            .then()
-                .statusCode(StatusCode.BAD_REQUEST);
-    }
-
-    @Test
-    @Order(Timeline.AFTER_THREE_IMAGES_UPLOADED)
-    public void updateImageMetadata_WithNonExistingIds_ShouldFail() {
-        final String url = "/image-metadata";
-        final String payload = "[{\"id\":\"not-exists\",\"status\":\"APPROVED\"}]";
-        RestAssured
-            .given()
-                .contentType(ContentType.JSON)
-                .body(payload)
-            .when().put(url)
-            .then()
-                .statusCode(StatusCode.BAD_REQUEST);
-    }
 
     @Test
     @Order(Timeline.BEFORE_ONE_IMAGE_APPROVED)
-    public void approvePendingImage_ShouldSucceed() {
+    public void approveImage_ShouldSucceed() {
         final String approvingImageId = imageMetadataProvider.getImageIdForApproval();
-        final String url = "/image-metadata";
-        final String payload = "[{\"id\":\"" + approvingImageId + "\",\"status\":\"APPROVED\"}]";
+        final String url = "/image-metadata/approve";
         RestAssured
             .given()
                 .contentType(ContentType.JSON)
-                .body(payload)
-            .when().put(url)
+                .body(List.of(approvingImageId))
+            .when().post(url)
             .then()
-                .statusCode(StatusCode.OK)
-                .body("size()", equalTo(1))
-                .body("id[0]", equalTo(approvingImageId))
-                .body("status[0]", equalTo("APPROVED"));
-    }
-
-    @Test
-    @Order(Timeline.AFTER_ONE_IMAGE_APPROVED)
-    public void fetchPendingImageMetadatas_ShouldReturnCorrectSize_AfterOneImageIsApproved() {
-        fetchPendingImageMetadatasShouldReturn(2);
-    }
-
-    @Test
-    @Order(Timeline.AFTER_ONE_IMAGE_APPROVED)
-    public void revertApprovedImage_ShouldFail() {
-        final String revertingImageId = imageMetadataProvider.getImageIdForApproval();
-        final String url = "/image-metadata";
-        final String payload = "[{\"id\":\"" + revertingImageId + "\",\"status\":\"PENDING\"}]";
-        RestAssured
-            .given()
-                .contentType(ContentType.JSON)
-                .body(payload)
-            .when().put(url)
-            .then()
-                .statusCode(StatusCode.BAD_REQUEST);
-    }
-
-    @Test
-    @Order(Timeline.AFTER_ONE_IMAGE_APPROVED)
-    public void approveAlreadyApprovedImage_ShouldFail() {
-        final String approvingImageId = imageMetadataProvider.getImageIdForApproval();
-        final String url = "/image-metadata";
-        final String payload = "[{\"id\":\"" + approvingImageId + "\",\"status\":\"APPROVED\"}]";
-        RestAssured
-            .given()
-                .contentType(ContentType.JSON)
-                .body(payload)
-            .when().put(url)
-            .then()
-                .statusCode(StatusCode.BAD_REQUEST);
+                .statusCode(StatusCode.NO_CONTENT);
     }
 
     @Test
@@ -355,87 +278,35 @@ public class ImageServiceCRUDWorkflowTest {
     }
 
     @Test
-    @Order(Timeline.BEFORE_ONE_IMAGE_REJECTED)
-    public void rejectPendingImage_ShouldSucceed() {
-        final String rejectingImageId = imageMetadataProvider.getImageIdForRejection();
-        final String url = "/image-metadata";
-        final String payload = "[{\"id\":\"" + rejectingImageId + "\",\"status\":\"REJECTED\"}]";
+    @Order(Timeline.AFTER_ONE_IMAGE_APPROVED)
+    public void fetchMetadataOfApprovedImage_ShouldSucceed() {
+        final String approvedImageId = imageMetadataProvider.getImageIdForApproval();
+        final String url = "/image-metadata/get";
         RestAssured
             .given()
                 .contentType(ContentType.JSON)
-                .body(payload)
-            .when().put(url)
+                .body(List.of(approvedImageId))
+            .when().post(url)
             .then()
                 .statusCode(StatusCode.OK)
+                .contentType("application/json")
                 .body("size()", equalTo(1))
-                .body("id[0]", equalTo(rejectingImageId))
-                .body("status[0]", equalTo("REJECTED"));
+                .body("id", everyItem(notNullValue()))
+                .body("status", everyItem(equalTo("APPROVED")));
     }
 
     @Test
     @Order(Timeline.BEFORE_ONE_IMAGE_REJECTED)
-    public void rejectAlreadyApprovedImage_ShouldFail() {
-        final String rejectingImageId = imageMetadataProvider.getImageIdForApproval();
-        final String url = "/image-metadata";
-        final String payload = "[{\"id\":\"" + rejectingImageId + "\",\"status\":\"REJECTED\"}]";
-        RestAssured
-            .given()
-                .contentType(ContentType.JSON)
-                .body(payload)
-            .when().put(url)
-            .then()
-                .statusCode(StatusCode.BAD_REQUEST);
-    }
-
-    @Test
-    @Order(Timeline.AFTER_ONE_IMAGE_REJECTED)
-    public void fetchPendingImageMetadatas_ShouldReturnCorrectSize_AfterOneImageIsRejected() {
-        fetchPendingImageMetadatasShouldReturn(1);
-    }
-
-    @Test
-    @Order(Timeline.AFTER_ONE_IMAGE_REJECTED)
-    public void approveAlreadyRejectedImage_ShouldFail() {
-        final String approvingImageId = imageMetadataProvider.getImageIdForRejection();
-        final String url = "/image-metadata";
-        final String payload = "[{\"id\":\"" + approvingImageId + "\",\"status\":\"APPROVED\"}]";
-        RestAssured
-            .given()
-                .contentType(ContentType.JSON)
-                .body(payload)
-            .when().put(url)
-            .then()
-                .statusCode(StatusCode.BAD_REQUEST);
-    }
-
-    @Test
-    @Order(Timeline.AFTER_ONE_IMAGE_REJECTED)
-    public void rejectAlreadyRejectedImage_ShouldFail() {
+    public void rejectImage_ShouldSucceed() {
         final String rejectingImageId = imageMetadataProvider.getImageIdForRejection();
-        final String url = "/image-metadata";
-        final String payload = "[{\"id\":\"" + rejectingImageId + "\",\"status\":\"REJECTED\"}]";
+        final String url = "/image-metadata/reject";
         RestAssured
             .given()
                 .contentType(ContentType.JSON)
-                .body(payload)
-            .when().put(url)
+                .body(List.of(rejectingImageId))
+            .when().post(url)
             .then()
-                .statusCode(StatusCode.BAD_REQUEST);
-    }
-
-    @Test
-    @Order(Timeline.AFTER_ONE_IMAGE_REJECTED)
-    public void revertRejectedImage_ShouldFail() {
-        final String revertingImageId = imageMetadataProvider.getImageIdForRejection();
-        final String url = "/image-metadata";
-        final String payload = "[{\"id\":\"" + revertingImageId + "\",\"status\":\"PENDING\"}]";
-        RestAssured
-            .given()
-                .contentType(ContentType.JSON)
-                .body(payload)
-            .when().put(url)
-            .then()
-                .statusCode(StatusCode.BAD_REQUEST);
+                .statusCode(StatusCode.NO_CONTENT);
     }
 
     @Test
@@ -446,60 +317,24 @@ public class ImageServiceCRUDWorkflowTest {
         RestAssured
             .when().get(url)
             .then()
-                .statusCode(StatusCode.FORBIDDEN);
+                .statusCode(StatusCode.NOT_FOUND);
     }
 
     @Test
-    @Order(Timeline.BEFORE_DELETING_PENDING_IMAGE)
-    public void deletePendingImage_ShouldSucceed() {
-        final String deletingImageId = imageMetadataProvider.getPendingImageId();
-        final String url = "/image-metadata?ids=" + deletingImageId;
+    @Order(Timeline.AFTER_ONE_IMAGE_REJECTED)
+    public void fetchMetadataOfRejectedImage_ShouldSucceed() {
+        final String approvedImageId = imageMetadataProvider.getImageIdForApproval();
+        final String url = "/image-metadata/get";
         RestAssured
-            .when().delete(url)
-            .then()
-                .statusCode(StatusCode.NO_CONTENT);
-    }
-
-    @Test
-    @Order(Timeline.AFTER_DELETING_PENDING_IMAGE)
-    public void fetchPendingImageMetadatas_ShouldReturnCorrectSize_AfterOneImageIsDeleted() {
-        fetchPendingImageMetadatasShouldReturn(0);
-    }
-
-    @Test
-    @Order(Timeline.BEFORE_DELETING_OTHER_IMAGES)
-    public void deleteMultipleImages_ShouldSucceed() {
-        final List<String> deletingImageIds = List.of(
-            imageMetadataProvider.getImageIdForApproval(),
-            imageMetadataProvider.getImageIdForRejection()
-        );
-        final String url = "/image-metadata?ids=" + String.join(",", deletingImageIds);
-        RestAssured
-            .when().delete(url)
-            .then()
-                .statusCode(StatusCode.NO_CONTENT);
-    }
-
-    @Test
-    @Order(Timeline.AFTER_DELETING_OTHER_IMAGES)
-    public void fetchDeletedMetadata_ShouldFail() {
-        final List<String> deletingImageIds = List.of(
-            imageMetadataProvider.getImageIdForApproval(),
-            imageMetadataProvider.getImageIdForRejection()
-        );
-        final String url = "/image-metadata?ids=" + String.join(",", deletingImageIds);
-        RestAssured
-            .when().get(url)
+            .given()
+                .contentType(ContentType.JSON)
+                .body(List.of(approvedImageId))
+            .when().post(url)
             .then()
                 .statusCode(StatusCode.OK)
-                .body("size()", equalTo(0));
-    }
-
-    private void fetchPendingImageMetadatasShouldReturn(int expectedSize) {
-        RestAssured
-            .when().get("/image-metadata/pending")
-            .then()
                 .contentType(ContentType.JSON)
-                .body("size()", equalTo(expectedSize));
+                .body("size()", equalTo(1))
+                .body("id", everyItem(notNullValue()))
+                .body("status", everyItem(equalTo("APPROVED")));
     }
 }

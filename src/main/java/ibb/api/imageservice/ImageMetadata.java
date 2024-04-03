@@ -1,12 +1,13 @@
 package ibb.api.imageservice;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonView;
 
+@JsonInclude(JsonInclude.Include.NON_ABSENT)
 public class ImageMetadata {
     public static enum Status {
-        APPROVED,
         PENDING,
-        REJECTED
+        APPROVED
     };
 
     public static class Views {
@@ -19,9 +20,6 @@ public class ImageMetadata {
 
     @JsonView(Views.Public.class)
     public Status status = Status.PENDING;
-
-    @JsonView(Views.Public.class)
-    public String comment;
 
     @JsonView(Views.Private.class)
     public String filepath;

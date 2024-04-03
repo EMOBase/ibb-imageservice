@@ -9,7 +9,6 @@ import javax.imageio.ImageIO;
 
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 
-import ibb.api.imageservice.utils.ImageUtil;
 import io.quarkus.runtime.StartupEvent;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Observes;
@@ -24,11 +23,11 @@ public class ImageStorage {
     @ConfigProperty(name = "data.image.dir")
     String imageDir;
 
-    @ConfigProperty(name = "data.new-image.subdir")
-    String newImageSubdir;
+    @ConfigProperty(name = "data.image.community-subdir")
+    String communitySubdir;
 
-    void createNewImageSubdir(@Observes StartupEvent ev) throws IOException {
-        Path path = Path.of(imageDir, newImageSubdir);
+    void createCommunitySubdir(@Observes StartupEvent ev) throws IOException {
+        Path path = Path.of(imageDir, communitySubdir);
         Files.createDirectories(path);
         if (!Files.isWritable(path)) {
             throw new IOException("Directory " + path + " is not writeable");
@@ -40,7 +39,7 @@ public class ImageStorage {
     }
 
     public String save(final String imageId, final Path sourceImage) throws IOException {
-        final String relativeTargetImage = Path.of(newImageSubdir, imageId).toString();
+        final String relativeTargetImage = Path.of(communitySubdir, imageId).toString();
         final Path targetImage = Path.of(imageDir, relativeTargetImage);
         Files.move(sourceImage, targetImage);
         return relativeTargetImage;
