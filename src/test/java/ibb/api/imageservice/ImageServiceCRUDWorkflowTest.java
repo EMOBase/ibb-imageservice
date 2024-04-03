@@ -43,6 +43,7 @@ import io.restassured.http.ContentType;
 public class ImageServiceCRUDWorkflowTest {
 
     private static class Timeline {
+        public static final int INITIAL = 1;
         public static final int BEFORE_THREE_IMAGES_UPLOADED = 2;
         public static final int AFTER_THREE_IMAGES_UPLOADED = 3;
         public static final int BEFORE_ONE_IMAGE_APPROVED = 4;
@@ -64,6 +65,26 @@ public class ImageServiceCRUDWorkflowTest {
     }
 
     private static ImageMetadataProvider imageMetadataProvider = new ImageMetadataProvider();
+
+    @Test
+    @Order(Timeline.INITIAL)
+    public void fetchIBeetleImageMetadata_ShouldReturnAppropriateFields() {
+        String imageId = "12679";
+        String url = "/image-metadata/get";
+        RestAssured
+            .given()
+                .contentType(ContentType.JSON)
+                .body(List.of(imageId))
+            .when().post(url)
+            .then()
+                .statusCode(StatusCode.OK)
+                .contentType(ContentType.JSON)
+                .body("size()", equalTo(1))
+                .body("id", everyItem(equalTo(imageId)))
+                .body("filepath", everyItem(nullValue()))
+                .body("watermark", everyItem(nullValue()))
+                .body("status", everyItem(equalTo("APPROVED")));
+    }
 
     @Test
     @Order(Timeline.BEFORE_THREE_IMAGES_UPLOADED)

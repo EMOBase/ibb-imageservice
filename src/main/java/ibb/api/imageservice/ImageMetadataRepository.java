@@ -1,15 +1,19 @@
 package ibb.api.imageservice;
 
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicLong;
 
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.resteasy.reactive.multipart.FileUpload;
 
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import co.elastic.clients.elasticsearch._helpers.bulk.BulkIngester;
+import io.quarkus.logging.Log;
 import io.quarkus.runtime.StartupEvent;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Observes;
@@ -21,8 +25,11 @@ public class ImageMetadataRepository {
     @ConfigProperty(name = "imageservice.elasticsearch.index-prefix")
     String indexPrefix;
 
-    @ConfigProperty(name = "imageservice.elasticsearch.delete-community-index-on-start", defaultValue = "false")
-    boolean deleteCommunityIndexOnStart;
+    @ConfigProperty(name = "imageservice.elasticsearch.delete-index-on-start", defaultValue = "false")
+    boolean deleteIndexOnStart;
+
+    @ConfigProperty(name = "data.dir")
+    String dataDir;
 
     @Inject
     ElasticsearchClient esClient;
@@ -31,9 +38,55 @@ public class ImageMetadataRepository {
     ImageStorage storage;
 
     void onStart(@Observes StartupEvent ev) throws IOException {
-        if (deleteCommunityIndexOnStart) {
-            esClient.indices().delete(b -> b.index(getCommunityIndexName()).ignoreUnavailable(true));
+        if (deleteIndexOnStart) {
+            esClient.indices().delete(b -> b.index(
+                getCommunityIndexName(),
+                getIBeetleIndexName()
+            ).ignoreUnavailable(true));
         }
+        if (esClient.indices().exists(b -> b.index(getIBeetleIndexName())).value()) {
+            Log.infov("Index {0} already exists, skipping loading data", getIBeetleIndexName());
+        } else {
+            Path path = Path.of(dataDir, "ibeetle_images.tsv");
+            if (path.toFile().canRead()) {
+                Log.infov("Loading iBeetle images from {0}", path);
+                loadIBeetleImages(path);
+            }
+        }
+    }
+
+    private void loadIBeetleImages(Path path) throws IOException {
+        AtomicLong count = new AtomicLong();
+        try (
+            var ingester = BulkIngester.<Void>of(b -> b.client(esClient));
+            var stream = Files.lines(path)
+        ) {
+            stream.filter(line -> !line.startsWith("#"))
+                .map(line -> line.split("\t"))
+                .map(cols -> {
+                    ImageMetadata metadata = new ImageMetadata();
+                    metadata.id = cols[0].trim();
+                    metadata.filepath = cols[1].trim();
+                    if (cols.length > 2) {
+                        metadata.watermark = cols[2].trim();
+                    }
+                    metadata.status = ImageMetadata.Status.APPROVED;
+                    return metadata;
+                })
+                .forEach(metadata -> {
+                    count.incrementAndGet();
+                    ingester.add(b -> b
+                        .index(idx -> idx
+                            .index(getIBeetleIndexName())
+                            .id(metadata.id)
+                            .document(metadata)
+                        )
+                    );
+                });
+        }
+        esClient.indices().refresh(b -> b.index(getIBeetleIndexName()).ignoreUnavailable(true));
+        // long count = esClient.count(b -> b.index(getIBeetleIndexName()).ignoreUnavailable(true)).count();
+        Log.infov("Loaded {0} iBeetle images", count.get());
     }
 
     public ImageMetadata findById(String id) throws IOException {
