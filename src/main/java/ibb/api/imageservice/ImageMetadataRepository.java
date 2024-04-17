@@ -28,6 +28,9 @@ public class ImageMetadataRepository {
     @ConfigProperty(name = "imageservice.elasticsearch.delete-index-on-start", defaultValue = "false")
     boolean deleteIndexOnStart;
 
+    @ConfigProperty(name = "data.load-on-start", defaultValue = "true")
+    boolean loadOnStart;
+
     @ConfigProperty(name = "data.dir")
     String dataDir;
 
@@ -44,15 +47,18 @@ public class ImageMetadataRepository {
                 getIBeetleIndexName()
             ).ignoreUnavailable(true));
         }
-        if (esClient.indices().exists(b -> b.index(getIBeetleIndexName())).value()) {
-            Log.infov("Index {0} already exists, skipping loading data", getIBeetleIndexName());
-        } else {
-            Path path = Path.of(dataDir, "ibeetle_images.tsv");
-            if (path.toFile().canRead()) {
-                Log.infov("Loading iBeetle images from {0}", path);
-                loadIBeetleImages(path);
+
+        if (loadOnStart) {
+            if (esClient.indices().exists(b -> b.index(getIBeetleIndexName())).value()) {
+                Log.infov("Index {0} already exists, skipping loading data", getIBeetleIndexName());
             } else {
-                Log.infov("iBeetle images file {0} not found, skipping loading data", path);
+                Path path = Path.of(dataDir, "ibeetle_images.tsv");
+                if (path.toFile().canRead()) {
+                    Log.infov("Loading iBeetle images from {0}", path);
+                    loadIBeetleImages(path);
+                } else {
+                    Log.infov("iBeetle images file {0} not found, skipping loading data", path);
+                }
             }
         }
     }

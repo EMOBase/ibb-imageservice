@@ -31,6 +31,3 @@ quarkus build -Dquarkus.container-image.build=true -DskipTests
 Prerequisites before running the docker container:
 - `/images` must be mounted to a writeable directory for storing uploaded images.
 - An elasticsearch instance is accessible at `es:9200` for storing image metadata.
-
-Optional:
-- `/data/ibeetle_images.tsv` will be loaded if available. The format is the same as the example file `./sample_data/ibeetle_images.tsv`.
