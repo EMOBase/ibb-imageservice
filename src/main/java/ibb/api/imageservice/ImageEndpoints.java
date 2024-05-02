@@ -20,12 +20,15 @@ import org.jboss.resteasy.reactive.multipart.FileUpload;
 
 import com.fasterxml.jackson.annotation.JsonView;
 
+import io.quarkus.security.Authenticated;
+import io.quarkus.security.identity.SecurityIdentity;
 import jakarta.inject.Inject;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.Size;
 import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.DefaultValue;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
@@ -43,6 +46,9 @@ public class ImageEndpoints {
 
     @Inject
     ImageStorage storage;
+
+    @Inject
+    SecurityIdentity identity;
 
     private static final Collection<Integer> ALLOWED_SIZES = Set.of(25, 50, 75, 100, 150, 200, 250, 300);
 
@@ -69,6 +75,9 @@ public class ImageEndpoints {
         }
         if (height != null && !ALLOWED_SIZES.contains(height)) {
             return Response.status(Status.BAD_REQUEST).build();
+        }
+        if (identity.isAnonymous() && metadata.status != ImageMetadata.Status.APPROVED) {
+            return Response.status(Status.FORBIDDEN).build();
         }
             
         StreamingOutput stream = outputStream -> {
@@ -99,7 +108,18 @@ public class ImageEndpoints {
         return metadataRepository.findByIds(ids);
     }
 
+    @GET
+    @Path("/image-metadata/pending")
+    @JsonView(ImageMetadata.Views.Public.class)
+    public List<ImageMetadata> listPending(
+        @RestQuery("from") @DefaultValue("0") Integer from,
+        @RestQuery("size") @DefaultValue("10") Integer size
+    ) throws IOException {
+        return metadataRepository.findPending(from, size);
+    }
+
     @POST
+    @Authenticated
     @Path("/image-metadata/reject")
     @Operation(summary = "Delete images")
     public void reject(@NotEmpty @Size(max = 10000) List<@NotBlank String> ids) throws IOException {
@@ -107,6 +127,7 @@ public class ImageEndpoints {
     }
 
     @POST
+    @Authenticated
     @Path("/image-metadata/approve")
     @Operation(summary = "Approve images")
     public void approve(@NotEmpty @Size(max = 10000) List<@NotBlank String> ids) throws IOException {

@@ -110,6 +110,16 @@ public class ImageMetadataRepository {
         , ImageMetadata.class).hits().hits().stream().map(s -> s.source()).toList();
     }
 
+    public List<ImageMetadata> findPending(int from, int size) throws IOException {
+        return esClient.search(s -> s
+            .index(getCommunityIndexName())
+            .allowNoIndices(true)
+            .from(from)
+            .size(size)
+            .query(q -> q.term(t -> t.field("status.keyword").value("PENDING")))
+        , ImageMetadata.class).hits().hits().stream().map(s -> s.source()).toList();
+    }
+
     public List<ImageMetadata> findCommunityImagesByIds(List<String> ids) throws IOException {
         return esClient.search(s -> s
             .index(getCommunityIndexName())
