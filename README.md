@@ -14,20 +14,11 @@ These commands might be useful after a long time not working on this project:
 
 - `quarkus update`: Update all quarkus dependencies to latest versions
 - `./mvnw -N wrapper:wrapper -Dmaven=3.8.7`: Update maven wrapper to new version, in this case `3.8.7`
-- `quarkus test`: Ensure all the tests still pass
 
 ## Deployment
 
 To build docker image:
-```
-quarkus build -Dquarkus.container-image.build=true
-```
 
-To build without running tests:
 ```
 quarkus build -Dquarkus.container-image.build=true -DskipTests
 ```
-
-Prerequisites before running the docker container:
-- `/images` must be mounted to a writeable directory for storing uploaded images.
-- An elasticsearch instance is accessible at `es:9200` for storing image metadata.

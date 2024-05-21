@@ -114,6 +114,7 @@ public class ImageMetadataRepository {
         return esClient.search(s -> s
             .index(getCommunityIndexName())
             .allowNoIndices(true)
+            .ignoreUnavailable(true)
             .from(from)
             .size(size)
             .query(q -> q.term(t -> t.field("status.keyword").value("PENDING")))
@@ -124,6 +125,7 @@ public class ImageMetadataRepository {
         return esClient.search(s -> s
             .index(getCommunityIndexName())
             .allowNoIndices(true)
+            .ignoreUnavailable(true)
             .size(10000)
             .query(q -> q.ids(i -> i.values(ids)))
         , ImageMetadata.class).hits().hits().stream().map(s -> s.source()).toList();
