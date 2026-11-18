@@ -17,7 +17,9 @@
 FROM registry.access.redhat.com/ubi8/ubi-minimal:8.9
 
 USER root
-RUN microdnf install fontconfig \
+# AWT in the native executable loads freetype and fontconfig at runtime, and
+# the watermark needs a font for "Sans-Serif" (the JVM image has DejaVu Sans).
+RUN microdnf install freetype fontconfig dejavu-sans-fonts \
     && microdnf update \
     && microdnf clean all
 
@@ -26,6 +28,10 @@ RUN chown 1001 /work \
     && chmod "g+rwX" /work \
     && chown 1001:root /work
 COPY --chown=1001:root target/*-runner /work/application
+# With AWT, the native build emits JDK libraries (libawt.so, libjavajpeg.so,
+# libfontmanager.so, ...) that must sit next to the executable. Without them
+# every image request fails with "UnsatisfiedLinkError: No awt".
+COPY --chown=1001:root target/*.so /work/
 
 EXPOSE 8080
 USER 1001

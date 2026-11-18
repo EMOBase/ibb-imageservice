@@ -17,8 +17,21 @@ These commands might be useful after a long time not working on this project:
 
 ## Deployment
 
-To build docker image:
+Images are published to GHCR by `.github/workflows/publish.yml` as native
+executables for `linux/amd64` and `linux/arm64`:
 
 ```
-quarkus build -Dquarkus.container-image.build=true -DskipTests
+ghcr.io/emobase/ibb-imageservice:<tag>
 ```
+
+To build locally (needs Docker; the native build runs in a builder container
+and produces a binary for the host's architecture):
+
+```bash
+./mvnw package -Dnative -Dquarkus.native.container-build=true -DskipTests
+docker build -f src/main/docker/Dockerfile.native -t emobase/ibb-imageservice:local .
+```
+
+The native image uses `Dockerfile.native` (UBI minimal with freetype,
+fontconfig and DejaVu fonts) rather than a micro image, because image scaling
+and watermarking use AWT, which needs those libraries at runtime.
